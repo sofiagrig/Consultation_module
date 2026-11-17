@@ -43,6 +43,30 @@ body {
   .btn-secondary {
     @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-line-strong bg-white px-4 py-2 font-medium hover:border-brand;
   }
+  .nav-link {
+    @apply inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] px-3.5 py-2.5 font-medium text-[#3c4e56] hover:bg-[#f1f5f6];
+  }
+  .badge {
+    @apply inline-grid h-5 min-w-5 place-items-center rounded-full bg-[#c2410c] px-1.5 text-xs font-bold text-white;
+  }
+  .chip {
+    @apply inline-flex min-h-10 cursor-pointer items-center rounded-full border border-line-strong bg-white px-3.5 py-1.5 text-sm hover:border-brand;
+  }
+  .chip-on {
+    @apply border-ink bg-ink text-white hover:border-ink;
+  }
+  .pill {
+    @apply inline-block rounded-full px-2.5 py-0.5 text-[12.5px] font-semibold whitespace-nowrap;
+  }
+  .file-chip {
+    @apply inline-flex max-w-full items-center gap-1.5 rounded-[10px] border border-line bg-[#f1f5f6] py-1 ps-2.5 pe-1 text-[13.5px];
+  }
+  .icon-btn {
+    @apply grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-[#4a5b62] hover:bg-[#e3e9eb];
+  }
+  .back-link {
+    @apply inline-flex min-h-11 items-center font-semibold text-brand-ink;
+  }
   .alert-error {
     @apply rounded-[10px] border border-[#f3b9b9] bg-[#fdecec] px-3 py-2.5 text-sm text-[#8f1d1d];
   }
