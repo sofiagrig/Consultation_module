@@ -11,7 +11,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const password = String(formData.get("password") ?? "");
 
   if (!username || !password) {
-    return { error: "יש למלא שם משתמש וסיסמה" };
+    return { error: "יש למלא שם משתמש (או מייל) וסיסמה" };
   }
 
   // Same accounts as the clinic contacts module: username → <username>@<AUTH_USERNAME_DOMAIN>.

@@ -22,7 +22,7 @@ export default function LoginPage() {
 
         <form action={action} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="label">שם משתמש</span>
+            <span className="label">שם משתמש או מייל</span>
             <input
               className="input"
               type="text"
