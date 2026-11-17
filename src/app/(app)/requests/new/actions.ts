@@ -40,7 +40,9 @@ export async function createRequest(
     if (m.includes("patient_name")) return { error: "שם המטופל לא תקין" };
     if (m.includes("patient_age")) return { error: "הגיל לא תקין" };
     if (m.includes("not_allowed")) return { error: "אין הרשאה לפתוח פנייה" };
-    return { error: "לא הצלחנו לשמור את הפנייה. נסו שוב." };
+    if (m.includes("not_found")) return { error: "התחום שנבחר לא זמין להתייעצות" };
+    console.error("consult_create_request failed", error);
+    return { error: `לא הצלחנו לשמור את הפנייה (${error.code ?? ""} ${m}). נסו שוב.` };
   }
   return { id: data as number };
 }

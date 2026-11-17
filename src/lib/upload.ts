@@ -25,7 +25,7 @@ export async function uploadFiles(requestId: number, messageId: number | null, f
     const { error } = await supabase.storage
       .from("consult-files")
       .upload(path, f, { contentType: f.type, upsert: false });
-    if (error) throw new Error(`העלאת ${f.name} נכשלה`);
+    if (error) throw new Error(`העלאת ${f.name} נכשלה: ${error.message}`);
     registered.push({ path, name: f.name, mime: f.type, size: f.size });
   }
 
@@ -35,6 +35,6 @@ export async function uploadFiles(requestId: number, messageId: number | null, f
     p_files: registered,
   });
   if (error) {
-    throw new Error(error.message.includes("too_many_files") ? "עד 10 קבצים לפנייה" : "שמירת הקבצים נכשלה");
+    throw new Error(error.message.includes("too_many_files") ? "עד 10 קבצים לפנייה" : `שמירת הקבצים נכשלה: ${error.message}`);
   }
 }

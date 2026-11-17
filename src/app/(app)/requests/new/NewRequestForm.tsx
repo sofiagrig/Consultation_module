@@ -54,16 +54,24 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
 
     setBusy(true);
     setError("");
-    const res = await createRequest({
-      specialtyId,
-      patientName: name.trim(),
-      patientIdLast4: last4,
-      patientAge: Number(age),
-      patientSex: sex as "male" | "female",
-      teeth,
-      question: question.trim(),
-      urgent,
-    });
+    let res: Awaited<ReturnType<typeof createRequest>>;
+    try {
+      res = await createRequest({
+        specialtyId,
+        patientName: name.trim(),
+        patientIdLast4: last4,
+        patientAge: Number(age),
+        patientSex: sex as "male" | "female",
+        teeth,
+        question: question.trim(),
+        urgent,
+      });
+    } catch (e) {
+      console.error("createRequest failed", e);
+      setError(`שמירת הפנייה נכשלה (${(e as Error).message || "שגיאת שרת"}). נסו שוב.`);
+      setBusy(false);
+      return;
+    }
     if ("error" in res) {
       setError(res.error);
       setBusy(false);
@@ -72,6 +80,7 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
     try {
       await uploadFiles(res.id, null, files);
     } catch (e) {
+      console.error("uploadFiles failed", e);
       // The request exists; send the user to it and say which files did not make it.
       router.push(`/requests/${res.id}?upload_error=${encodeURIComponent((e as Error).message)}`);
       return;
