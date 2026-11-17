@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ToothChart } from "@/components/ToothChart";
 import {
   canScreen,
+  consultSpecialties,
   formatDate,
   getViewer,
   ROLE_LABEL,
@@ -68,8 +69,8 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
   const isOpsTriage = canScreen(viewer.role) && !req.doctor_id && status !== "closed";
   let forward: { specialties: { id: string; name: string }[]; specialists: { user_id: string; full_name: string; specialty_ids: string[]; waiting_count: number }[] } | null = null;
   if (isOpsTriage) {
-    const [{ data: specs }, { data: specialists }] = await Promise.all([
-      supabase.from("specialties").select("id, name").order("sort_order"),
+    const [specs, { data: specialists }] = await Promise.all([
+      consultSpecialties(),
       supabase.rpc("consult_specialists"),
     ]);
     forward = { specialties: specs ?? [], specialists: specialists ?? [] };

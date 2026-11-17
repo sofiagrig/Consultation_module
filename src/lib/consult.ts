@@ -97,6 +97,21 @@ export function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+export type Specialty = { id: string; name: string; code: string };
+
+/**
+ * Specialties offered for consultation (the directory's list minus the ones the module
+ * excludes, such as hygiene). Falls back to the plain list without hygiene while the
+ * database function is not deployed yet.
+ */
+export async function consultSpecialties(): Promise<Specialty[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("consult_specialties");
+  if (!error && data) return data as Specialty[];
+  const { data: all } = await supabase.from("specialties").select("id, name, code").order("sort_order");
+  return ((all ?? []) as Specialty[]).filter((s) => s.code !== "hygiene" && s.name.trim() !== "שיננות");
+}
+
 /** Names of users by id (profiles are readable to every signed-in user). */
 export async function userNames(ids: (string | null | undefined)[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter((id): id is string => !!id))];
