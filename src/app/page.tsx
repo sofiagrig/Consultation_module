@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "./login/actions";
+import { displayUsername } from "@/lib/auth";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function Home() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">התייעצות מומחים</h1>
-          <p className="mt-1 text-sm text-muted">מחוברת בתור {user?.email}</p>
+          <p className="mt-1 text-sm text-muted">מחוברת בתור {displayUsername(user?.email)}</p>
         </div>
         <form action={logout}>
           <button type="submit" className="btn-secondary">

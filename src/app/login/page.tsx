@@ -21,11 +21,13 @@ export default function LoginPage() {
 
         <form action={action} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="label">אימייל</span>
+            <span className="label">שם משתמש</span>
             <input
               className="input"
-              type="email"
-              name="email"
+              type="text"
+              name="username"
+              autoCapitalize="none"
+              spellCheck={false}
               autoComplete="username"
               dir="ltr"
               required

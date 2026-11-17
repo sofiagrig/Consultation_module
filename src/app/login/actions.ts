@@ -1,23 +1,28 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { loginEmail } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = { error: string | null };
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!email || !password) {
-    return { error: "יש למלא אימייל וסיסמה" };
+  if (!username || !password) {
+    return { error: "יש למלא שם משתמש וסיסמה" };
   }
 
+  // Same accounts as the clinic contacts module: username → <username>@<AUTH_USERNAME_DOMAIN>.
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({
+    email: loginEmail(username),
+    password,
+  });
 
   if (error) {
-    return { error: "האימייל או הסיסמה לא נכונים" };
+    return { error: "שם המשתמש או הסיסמה לא נכונים" };
   }
 
   redirect("/");
