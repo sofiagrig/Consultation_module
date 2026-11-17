@@ -85,7 +85,6 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
         → חזרה לפניות
       </Link>
       <h1 className="text-2xl font-bold">פנייה חדשה</h1>
-      <p className="mt-1 text-sm text-muted">הפנייה תגיע לסמנכ״ל התפעול. הוא יענה בעצמו או יעביר אותה לרופא מומחה.</p>
 
       <div className="mt-4 flex flex-col gap-4">
         <section className="card p-[18px]">
