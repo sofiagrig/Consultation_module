@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Colors and type follow the approved prototype. */
+@theme inline {
+  --color-brand: #0e7c86;
+  --color-brand-dark: #0b6870;
+  --color-brand-ink: #0b5f67;
+  --color-brand-soft: #e3f2f3;
+  --color-ink: #13232b;
+  --color-muted: #5b6b72;
+  --color-line: #dde5e7;
+  --color-line-strong: #c9d5d8;
+  --color-page: #f3f6f6;
+  --font-sans: var(--font-heebo), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .card {
+    @apply rounded-[14px] border border-line bg-white;
+  }
+  .label {
+    @apply text-[13px] font-medium text-[#4a5b62];
+  }
+  .input {
+    @apply min-h-11 w-full rounded-[10px] border border-line-strong bg-white px-3 py-2.5 outline-none focus:border-brand;
+  }
+  .btn-primary {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-brand px-[18px] py-2.5 font-semibold text-white hover:bg-brand-dark disabled:cursor-default disabled:opacity-60;
+  }
+  .btn-secondary {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-line-strong bg-white px-4 py-2 font-medium hover:border-brand;
+  }
+  .alert-error {
+    @apply rounded-[10px] border border-[#f3b9b9] bg-[#fdecec] px-3 py-2.5 text-sm text-[#8f1d1d];
+  }
+}
