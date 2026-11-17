@@ -16,7 +16,6 @@ export default function LoginPage() {
           <Logo />
           <div>
             <h1 className="text-xl font-bold">התייעצות מומחים</h1>
-            <p className="text-sm text-muted">כניסה עם המשתמש של מודול קשרי מרפאות</p>
           </div>
         </div>
 
