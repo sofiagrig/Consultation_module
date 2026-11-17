@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ToothChart } from "@/components/ToothChart";
 import {
+  canScreen,
   formatDate,
   getViewer,
   ROLE_LABEL,
+  seesAll,
   SEX_LABEL,
   STATUS_CLASS,
   STATUS_LABEL,
@@ -63,7 +65,7 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
   ]);
   const doctorName = req.doctor_id ? names.get(req.doctor_id) || "רופא מומחה" : null;
 
-  const isOpsTriage = viewer.role === "ops" && !req.doctor_id && status !== "closed";
+  const isOpsTriage = canScreen(viewer.role) && !req.doctor_id && status !== "closed";
   let forward: { specialties: { id: string; name: string }[]; specialists: { user_id: string; full_name: string; specialty_ids: string[]; waiting_count: number }[] } | null = null;
   if (isOpsTriage) {
     const [{ data: specs }, { data: specialists }] = await Promise.all([
@@ -74,7 +76,7 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
   }
 
   let viewLog: { user_id: string | null; action: string; file_id: string | null; at: string }[] = [];
-  if (viewer.role === "ops" || viewer.role === "overview") {
+  if (seesAll(viewer.role)) {
     const { data } = await supabase
       .from("consult_view_log")
       .select("user_id, action, file_id, at")
@@ -87,24 +89,30 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
   const fileName = new Map(files.map((f) => [f.id, f.file_name]));
 
   const myAuthorRole: AuthorRole | null =
-    req.doctor_id === viewer.userId ? "doctor" : viewer.role === "ops" ? "ops" : viewer.role === "clinic" ? "clinic" : null;
+    req.doctor_id === viewer.userId
+      ? "doctor"
+      : viewer.role === "ops" || viewer.role === "admin" || viewer.role === "clinic"
+        ? viewer.role
+        : null;
   const authorName = (m: Message) =>
     m.author_role === "doctor"
       ? names.get(m.author_id ?? "") || "רופא מומחה"
       : m.author_role === "ops"
         ? ROLE_LABEL.ops
-        : branchName;
+        : m.author_role === "admin"
+          ? `${names.get(m.author_id ?? "") || ""} · ${ROLE_LABEL.admin}`
+          : branchName;
   const side = (role: AuthorRole) =>
     role === myAuthorRole
       ? "self-start border-[#cbe6e8] bg-brand-soft"
-      : role === "ops"
+      : role === "ops" || role === "admin"
         ? "self-end border-[#e4d9fb] bg-[#f6f2ff]"
         : "self-end border-line bg-[#f7f9fa]";
 
   const replyLabel =
     myAuthorRole === "doctor"
       ? "תשובה למרפאה"
-      : myAuthorRole === "ops"
+      : myAuthorRole === "ops" || myAuthorRole === "admin"
         ? req.doctor_id
           ? "הודעה בשרשור (המרפאה והרופא יראו אותה)"
           : "תשובה למרפאה, בלי להעביר למומחה"
@@ -200,8 +208,8 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
               m.author_role === "system" ? (
                 <div key={m.id} className="self-center rounded-full bg-[#eef2f3] px-3 py-1 text-center text-[13px] text-[#4a5b62]">
                   {m.event === "forwarded"
-                    ? `הפנייה הועברה ל${names.get(m.event_data.doctor_id ?? "") || "רופא מומחה"} על ידי ${ROLE_LABEL.ops}`
-                    : `הפנייה נסגרה על ידי ${m.event_data.by === "clinic" ? branchName : m.event_data.by === "doctor" ? doctorName ?? "הרופא" : ROLE_LABEL.ops}`}{" "}
+                    ? `הפנייה הועברה ל${names.get(m.event_data.doctor_id ?? "") || "רופא מומחה"} על ידי ${m.event_data.by === "admin" ? names.get(m.author_id ?? "") || ROLE_LABEL.admin : ROLE_LABEL.ops}`
+                    : `הפנייה נסגרה על ידי ${m.event_data.by === "clinic" ? branchName : m.event_data.by === "doctor" ? doctorName ?? "הרופא" : m.event_data.by === "admin" ? names.get(m.author_id ?? "") || ROLE_LABEL.admin : ROLE_LABEL.ops}`}{" "}
                   · {formatDate(m.created_at)}
                 </div>
               ) : (
@@ -229,7 +237,7 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
               requestId={id}
               label={replyLabel}
               placeholder={myAuthorRole === "clinic" ? "תגובה, פרטים נוספים או שאלת המשך" : "תשובה או שאלת הבהרה למרפאה"}
-              sendLabel={status === "closed" ? "שליחה ופתיחה מחדש" : myAuthorRole === "ops" && !req.doctor_id ? "שליחת תשובה למרפאה" : "שליחה"}
+              sendLabel={status === "closed" ? "שליחה ופתיחה מחדש" : (myAuthorRole === "ops" || myAuthorRole === "admin") && !req.doctor_id ? "שליחת תשובה למרפאה" : "שליחה"}
               filesLeft={MAX_FILES_PER_REQUEST - files.length}
             />
           ) : (

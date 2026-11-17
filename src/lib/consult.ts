@@ -3,9 +3,9 @@ import { displayUsername } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 /** The module role of the signed-in user. null = no access to the consultation module. */
-export type ConsultRole = "clinic" | "ops" | "specialist" | "overview";
+export type ConsultRole = "clinic" | "ops" | "specialist" | "overview" | "admin";
 export type ConsultStatus = "triage" | "waiting_doctor" | "answered" | "closed";
-export type AuthorRole = "clinic" | "ops" | "doctor" | "system";
+export type AuthorRole = "clinic" | "ops" | "admin" | "doctor" | "system";
 
 export type Viewer = {
   userId: string;
@@ -18,7 +18,7 @@ export type Viewer = {
 
 /**
  * Who is signed in and in which capacity. Roles come from the shared database:
- * consult_access (ops / specialist / overview) wins; otherwise a clinic manager of a branch
+ * consult_access (ops / admin / specialist / overview) wins; otherwise a clinic manager of a branch
  * (profiles.app_role = 'clinic_manager') is the clinic role. Permissions themselves are
  * enforced by RLS — this only decides which screens to show.
  */
@@ -58,7 +58,18 @@ export const ROLE_LABEL: Record<ConsultRole, string> = {
   ops: "סמנכ״ל תפעול",
   specialist: "רופא מומחה",
   overview: "הנהלה",
+  admin: "מנהל מערכת",
 };
+
+/** Ops and the system admin screen requests: they answer, forward and close. */
+export function canScreen(role: ConsultRole | null): boolean {
+  return role === "ops" || role === "admin";
+}
+
+/** Roles that see every request and the access log. */
+export function seesAll(role: ConsultRole | null): boolean {
+  return role === "ops" || role === "admin" || role === "overview";
+}
 
 export const STATUS_LABEL: Record<ConsultStatus, string> = {
   triage: "בבדיקת סמנכ״ל תפעול",

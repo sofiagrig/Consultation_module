@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  canScreen,
   formatDate,
   getViewer,
   SEX_LABEL,
@@ -60,7 +61,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
 
   // Ops and specialists work a queue: what needs them first, urgent first.
   const first: ConsultStatus | null =
-    viewer.role === "ops" ? "triage" : viewer.role === "specialist" ? "waiting_doctor" : null;
+    canScreen(viewer.role) ? "triage" : viewer.role === "specialist" ? "waiting_doctor" : null;
   const order: Record<ConsultStatus, number> = { triage: 1, waiting_doctor: 2, answered: 3, closed: 4 };
   const rank = (r: Row) => (r.status === first ? (r.urgent ? 0 : 1) : order[r.status] + 1);
   const shown = rows
@@ -69,6 +70,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
 
   const isUnread = (r: Row) =>
     viewer.role !== "overview" &&
+    viewer.role !== "admin" &&
     r.last_message_by !== viewer.userId &&
     (!seen.has(r.id) || seen.get(r.id)! < r.last_message_at);
 
@@ -81,7 +83,9 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
         ? "כל הפניות מכל הסניפים · ממתינות לבדיקה ודחופות מופיעות ראשונות"
         : viewer.role === "specialist"
           ? "פניות שסמנכ״ל התפעול העביר אליך · דחופות וממתינות ראשונות"
-          : "צפייה ומעקב";
+          : viewer.role === "admin"
+            ? "כל הפניות מכל הסניפים · ממתינות לבדיקה ודחופות מופיעות ראשונות"
+            : "צפייה ומעקב";
 
   return (
     <>

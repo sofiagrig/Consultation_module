@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <nav className="flex flex-wrap items-center gap-1" aria-label="תפריט ראשי">
             {viewer.role && (
               <Link href="/" className="nav-link">
-                {viewer.role === "ops" ? "פניות לסינון" : viewer.role === "specialist" ? "תיבת פניות" : viewer.role === "overview" ? "כל הפניות" : "הפניות שלנו"}
+                {viewer.role === "ops" ? "פניות לסינון" : viewer.role === "specialist" ? "תיבת פניות" : viewer.role === "clinic" ? "הפניות שלנו" : "כל הפניות"}
                 {badge > 0 && (
                   <span className="badge" aria-label={`${badge} פניות עם עדכון`}>
                     {badge}
