@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { getViewer } from "@/lib/consult";
+import { notify } from "@/lib/notify";
 import { createClient } from "@/lib/supabase/server";
 
 export type NewRequestInput = {
@@ -44,5 +46,7 @@ export async function createRequest(
     console.error("consult_create_request failed", error);
     return { error: `לא הצלחנו לשמור את הפנייה (${error.code ?? ""} ${m}). נסו שוב.` };
   }
-  return { id: data as number };
+  const id = data as number;
+  after(() => notify(id, "new_request", { urgent: input.urgent }));
+  return { id };
 }

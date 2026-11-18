@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ToothChart, type Dentition } from "@/components/ToothChart";
 import { formatSize, MAX_FILES_PER_REQUEST } from "@/lib/limits";
-import { fileProblem, uploadFiles } from "@/lib/upload";
+import { fileProblem, uploadFiles, type UploadKind } from "@/lib/upload";
 import { createRequest } from "./actions";
 
 type Specialty = { id: string; name: string; code: string };
@@ -20,7 +20,7 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
   const [dentition, setDentition] = useState<Dentition>("permanent");
   const [teeth, setTeeth] = useState<number[]>([]);
   const [question, setQuestion] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<{ file: File; kind: UploadKind }[]>([]);
   const [urgent, setUrgent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,15 +28,52 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
   const toggleTooth = (n: number) =>
     setTeeth((t) => (t.includes(n) ? t.filter((x) => x !== n) : [...t, n].sort((a, b) => a - b)));
 
-  const addFiles = (list: FileList | null) => {
+  const addFiles = (list: FileList | null, kind: UploadKind) => {
     const picked = Array.from(list ?? []);
     const problems = picked.map(fileProblem).filter(Boolean) as string[];
     const ok = picked.filter((f) => !fileProblem(f));
     const room = MAX_FILES_PER_REQUEST - files.length;
     if (ok.length > room) problems.push(`עד ${MAX_FILES_PER_REQUEST} קבצים לפנייה`);
-    setFiles((f) => [...f, ...ok.slice(0, Math.max(0, room))]);
+    setFiles((f) => [...f, ...ok.slice(0, Math.max(0, room)).map((file) => ({ file, kind }))]);
     setError(problems.join(" · "));
   };
+
+  const fileField = (kind: UploadKind, title: string, hint: string) => (
+    <div className="flex flex-col gap-1.5">
+      <span className="label">{title} (לא חובה)</span>
+      <div className="flex flex-wrap gap-2">
+        <label className="btn-secondary relative">
+          + {title}
+          <input
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.pdf"
+            className="absolute h-px w-px opacity-0"
+            onChange={(e) => {
+              addFiles(e.target.files, kind);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {files.map(({ file: f, kind: k }, i) =>
+          k !== kind ? null : (
+            <span key={`${f.name}-${i}`} className="file-chip">
+              {f.name} <small className="text-muted">{formatSize(f.size)}</small>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`הסרת ${f.name}`}
+                onClick={() => setFiles((all) => all.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            </span>
+          ),
+        )}
+      </div>
+      <span className="text-[13px] text-muted">{hint}</span>
+    </div>
+  );
 
   const submit = async () => {
     const missing: string[] = [];
@@ -191,7 +228,7 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
         </section>
 
         <section className="card p-[18px]">
-          <h2 className="mb-3 text-base font-semibold">4. השאלה וקבצים</h2>
+          <h2 className="mb-3 text-base font-semibold">4. השאלה, צילומים ושאלון בריאות</h2>
           <label className="flex flex-col gap-1.5">
             <span className="label">השאלה</span>
             <textarea
@@ -202,37 +239,11 @@ export function NewRequestForm({ specialties }: { specialties: Specialty[] }) {
               onChange={(e) => setQuestion(e.target.value)}
             />
           </label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <label className="btn-secondary relative">
-              צירוף קבצים
-              <input
-                type="file"
-                multiple
-                accept=".jpg,.jpeg,.png,.pdf"
-                className="absolute h-px w-px opacity-0"
-                onChange={(e) => {
-                  addFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {files.map((f, i) => (
-              <span key={`${f.name}-${i}`} className="file-chip">
-                {f.name} <small className="text-muted">{formatSize(f.size)}</small>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={`הסרת ${f.name}`}
-                  onClick={() => setFiles((all) => all.filter((_, j) => j !== i))}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
+          <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
+            {fileField("xray", "צילומים", "רנטגן, פנורמי, CT או תמונה קלינית")}
+            {fileField("health", "שאלון בריאות", "סריקה או PDF של שאלון הבריאות של המטופל")}
           </div>
-          <p className="mt-2 text-[13px] text-muted">
-            צילום רנטגן, תמונה או PDF של CT · JPG, PNG, PDF · עד 100MB לקובץ · עד 10 קבצים לפנייה
-          </p>
+          <p className="mt-3 text-[13px] text-muted">JPG, PNG או PDF · עד 100MB לקובץ · עד 10 קבצים לפנייה</p>
         </section>
 
         <section className="card p-[18px]">

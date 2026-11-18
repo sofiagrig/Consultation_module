@@ -4,9 +4,10 @@ import {
   formatDate,
   getViewer,
   SEX_LABEL,
-  STATUS_CLASS,
-  STATUS_LABEL,
+  statusClass,
+  statusLabel,
   userNames,
+  type ConsultRole,
   type ConsultStatus,
 } from "@/lib/consult";
 import { createClient } from "@/lib/supabase/server";
@@ -23,30 +24,45 @@ type Row = {
   created_at: string;
   last_message_at: string;
   last_message_by: string | null;
+  last_clinic_message_at: string;
+  last_clinic_message_by: string | null;
   doctor_id: string | null;
   branches: { name: string } | null;
   specialties: { name: string } | null;
 };
 
-const FILTERS: { key: "all" | ConsultStatus; label: string }[] = [
-  { key: "all", label: "הכל" },
-  { key: "triage", label: "בבדיקת סמנכ״ל" },
-  { key: "waiting_doctor", label: "ממתינה לרופא" },
-  { key: "answered", label: "נענתה" },
-  { key: "closed", label: "סגורה" },
-];
+type FilterKey = "all" | "open" | ConsultStatus;
+
+/** The clinic does not see whether a specialist is involved: "in progress" covers both. */
+function filtersFor(role: ConsultRole | null): { key: FilterKey; label: string }[] {
+  if (role === "clinic") {
+    return [
+      { key: "all", label: "הכל" },
+      { key: "open", label: "בטיפול" },
+      { key: "answered", label: "נענתה" },
+      { key: "closed", label: "סגורה" },
+    ];
+  }
+  const keys: ConsultStatus[] =
+    role === "specialist" ? ["waiting_doctor", "triage", "answered", "closed"] : ["triage", "waiting_doctor", "answered", "closed"];
+  return [{ key: "all", label: "הכל" }, ...keys.map((k) => ({ key: k, label: statusLabel(role, k) }))];
+}
+
+const matches = (key: string, s: ConsultStatus) =>
+  key === "all" || s === key || (key === "open" && (s === "triage" || s === "waiting_doctor"));
 
 export default async function RequestsPage({ searchParams }: PageProps<"/">) {
   const viewer = (await getViewer())!;
   const { status } = await searchParams;
-  const filter = FILTERS.some((f) => f.key === status) ? (status as string) : "all";
+  const filters = filtersFor(viewer.role);
+  const filter = filters.some((f) => f.key === status) ? (status as string) : "all";
 
   const supabase = await createClient();
   const [{ data }, { data: reads }] = await Promise.all([
     supabase
       .from("consult_requests")
       .select(
-        "id, status, urgent, patient_name, patient_id_last4, patient_age, patient_sex, teeth, created_at, last_message_at, last_message_by, doctor_id, branches(name), specialties(name)",
+        "id, status, urgent, patient_name, patient_id_last4, patient_age, patient_sex, teeth, created_at, last_message_at, last_message_by, last_clinic_message_at, last_clinic_message_by, doctor_id, branches(name), specialties(name)",
       )
       .order("created_at", { ascending: false })
       .limit(500),
@@ -56,8 +72,8 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
   const seen = new Map((reads ?? []).map((r) => [r.request_id as number, r.seen_at as string]));
   const doctors = await userNames(rows.map((r) => r.doctor_id));
 
-  const counts: Record<string, number> = { all: rows.length };
-  for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
+  const counts: Record<string, number> = {};
+  for (const f of filters) counts[f.key] = rows.filter((r) => matches(f.key, r.status)).length;
 
   // Ops and specialists work a queue: what needs them first, urgent first.
   const first: ConsultStatus | null =
@@ -65,14 +81,16 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
   const order: Record<ConsultStatus, number> = { triage: 1, waiting_doctor: 2, answered: 3, closed: 4 };
   const rank = (r: Row) => (r.status === first ? (r.urgent ? 0 : 1) : order[r.status] + 1);
   const shown = rows
-    .filter((r) => filter === "all" || r.status === filter)
+    .filter((r) => matches(filter, r.status))
     .sort((a, b) => (first ? rank(a) - rank(b) : 0) || b.created_at.localeCompare(a.created_at));
 
-  const isUnread = (r: Row) =>
-    viewer.role !== "overview" &&
-    viewer.role !== "admin" &&
-    r.last_message_by !== viewer.userId &&
-    (!seen.has(r.id) || seen.get(r.id)! < r.last_message_at);
+  // The clinic only counts what reached it on the clinic channel.
+  const isUnread = (r: Row) => {
+    if (viewer.role === "overview" || viewer.role === "admin") return false;
+    const [at, by] =
+      viewer.role === "clinic" ? [r.last_clinic_message_at, r.last_clinic_message_by] : [r.last_message_at, r.last_message_by];
+    return by !== viewer.userId && (!seen.has(r.id) || seen.get(r.id)! < at);
+  };
 
   const title =
     viewer.role === "clinic" ? "הפניות שלנו" : viewer.role === "ops" ? "פניות לסינון" : viewer.role === "specialist" ? "תיבת פניות" : "כל הפניות";
@@ -102,7 +120,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
       </div>
 
       <nav className="mt-4 flex flex-wrap gap-1.5" aria-label="סינון לפי סטטוס">
-        {FILTERS.filter((f) => !(viewer.role === "specialist" && f.key === "triage")).map((f) => (
+        {filters.map((f) => (
           <Link
             key={f.key}
             href={f.key === "all" ? "/" : `/?status=${f.key}`}
@@ -128,12 +146,12 @@ export default async function RequestsPage({ searchParams }: PageProps<"/">) {
                   <span className="flex flex-wrap items-center gap-2">
                     <b>
                       {viewer.role === "clinic"
-                        ? `${r.specialties?.name} · ${doctor ?? "סמנכ״ל תפעול"}`
-                        : `${r.branches?.name} · ${r.specialties?.name}`}
+                        ? `${r.specialties?.name}`
+                        : `${r.branches?.name} · ${r.specialties?.name}${doctor && viewer.role !== "specialist" ? ` · ${doctor}` : ""}`}
                     </b>
                     {unread && <span className="pill bg-[#c2410c] text-white">{viewer.role === "clinic" ? "תשובה חדשה" : "חדש"}</span>}
                     {r.urgent && <span className="pill bg-[#fde7dc] text-[#9a3412]">דחוף</span>}
-                    <span className={`pill ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
+                    <span className={`pill ${statusClass(viewer.role, r.status)}`}>{statusLabel(viewer.role, r.status)}</span>
                   </span>
                   <span className="text-[13.5px] text-[#4a5b62]">
                     מס׳ {r.id} · {r.patient_name} · ת״ז …{r.patient_id_last4} · {SEX_LABEL[r.patient_sex]}, {r.patient_age} · שיניים{" "}

@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatSize, MAX_FILES_PER_REQUEST } from "@/lib/limits";
 import { fileProblem, uploadFiles } from "@/lib/upload";
-import { closeRequest, fileLink, forwardRequest, postMessage } from "./actions";
+import { closeRequest, fileLink, forwardRequest, postMessage, type Channel } from "./actions";
 
-export function FileButton({ id, name, size }: { id: string; name: string; size: number }) {
+export function FileButton({ id, name, size, kindLabel }: { id: string; name: string; size: number; kindLabel?: string }) {
   const [error, setError] = useState("");
   const open = async () => {
     // Open the tab synchronously so pop-up blockers allow it, then point it at the signed URL.
@@ -27,6 +27,7 @@ export function FileButton({ id, name, size }: { id: string; name: string; size:
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
           <path d="M14 3v5h5" />
         </svg>
+        {kindLabel && <b className="text-[12.5px]">{kindLabel}:</b>}
         {name} <small className="text-muted">{formatSize(size)}</small>
       </button>
       {error && <small className="text-[#8f1d1d]">{error}</small>}
@@ -34,42 +35,63 @@ export function FileButton({ id, name, size }: { id: string; name: string; size:
   );
 }
 
-export function CloseButton({ requestId }: { requestId: number }) {
+export function CloseButton({ requestId, prominent = false }: { requestId: number; prominent?: boolean }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const close = async () => {
+    setBusy(true);
+    const res = await closeRequest(requestId);
+    setBusy(false);
+    if (res) setError(res.error);
+  };
+
+  if (!prominent) {
+    return (
+      <button type="button" className="btn-secondary" disabled={busy} onClick={close}>
+        סגירת הפנייה
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      className="btn-secondary"
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        await closeRequest(requestId);
-        setBusy(false);
-      }}
-    >
-      סגירת הפנייה
-    </button>
+    <div className="mx-[18px] mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-brand bg-brand-soft px-4 py-3.5">
+      <div>
+        <b className="block">קיבלתם מענה?</b>
+        <span className="text-sm text-[#3c4e56]">אם אין שאלות נוספות, סגרו את הפנייה. אפשר לפתוח אותה שוב בהודעה חדשה.</span>
+        {error && <span className="block text-sm text-[#8f1d1d]">{error}</span>}
+      </div>
+      <button type="button" className="btn-primary" disabled={busy} onClick={close}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+        {busy ? "סוגרים…" : "קיבלתי מענה, סגירת הפנייה"}
+      </button>
+    </div>
   );
 }
 
+export type ReplyOption = { channel: Channel; tab: string; label: string; placeholder: string; sendLabel: string };
+
+/**
+ * Reply box. With more than one option (ops/admin) a toggle picks the channel: to the
+ * clinic, or internal to the specialist.
+ */
 export function ReplyBox({
   requestId,
-  label,
-  placeholder,
-  sendLabel,
+  options,
   filesLeft,
 }: {
   requestId: number;
-  label: string;
-  placeholder: string;
-  sendLabel: string;
+  options: ReplyOption[];
   filesLeft: number;
 }) {
   const router = useRouter();
+  const [index, setIndex] = useState(0);
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const opt = options[index];
+  const internal = opt.channel === "internal";
 
   const addFiles = (list: FileList | null) => {
     const picked = Array.from(list ?? []);
@@ -88,14 +110,21 @@ export function ReplyBox({
     }
     setBusy(true);
     setError("");
-    const res = await postMessage(requestId, body.trim(), files.length > 0);
+    let res: Awaited<ReturnType<typeof postMessage>>;
+    try {
+      res = await postMessage(requestId, body.trim(), files.length > 0, opt.channel);
+    } catch (e) {
+      setError(`השליחה נכשלה (${(e as Error).message || "שגיאת שרת"}). נסו שוב.`);
+      setBusy(false);
+      return;
+    }
     if ("error" in res) {
       setError(res.error);
       setBusy(false);
       return;
     }
     try {
-      await uploadFiles(requestId, res.id, files);
+      await uploadFiles(requestId, res.id, files.map((file) => ({ file, kind: "other" as const })));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -106,13 +135,31 @@ export function ReplyBox({
   };
 
   return (
-    <div className="flex flex-col gap-2.5 border-t border-line px-[18px] pt-3.5 pb-[18px]">
+    <div className={`flex flex-col gap-2.5 border-t px-[18px] pt-3.5 pb-[18px] ${internal ? "border-[#e4d9fb] bg-[#fcfaff]" : "border-line"}`}>
+      {options.length > 1 && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="למי לכתוב">
+          {options.map((o, i) => (
+            <button
+              key={o.channel}
+              type="button"
+              className={`chip ${i === index ? "chip-on" : ""}`}
+              aria-pressed={i === index}
+              onClick={() => {
+                setIndex(i);
+                setError("");
+              }}
+            >
+              {o.tab}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="flex flex-col gap-1.5">
-        <span className="label">{label}</span>
+        <span className="label">{opt.label}</span>
         <textarea
           className="input min-h-[92px] resize-y"
           rows={3}
-          placeholder={placeholder}
+          placeholder={opt.placeholder}
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -153,7 +200,7 @@ export function ReplyBox({
           <span className="text-[13px] text-muted">הגעתם ל־10 קבצים בפנייה</span>
         )}
         <button type="button" className="btn-primary" onClick={send} disabled={busy}>
-          {busy ? "שולחים…" : sendLabel}
+          {busy ? "שולחים…" : opt.sendLabel}
         </button>
       </div>
     </div>

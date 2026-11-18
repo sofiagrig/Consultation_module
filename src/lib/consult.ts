@@ -72,10 +72,44 @@ export function seesAll(role: ConsultRole | null): boolean {
 }
 
 export const STATUS_LABEL: Record<ConsultStatus, string> = {
-  triage: "בבדיקת סמנכ״ל תפעול",
-  waiting_doctor: "ממתינה לרופא",
+  triage: "ממתינה לסמנכ״ל",
+  waiting_doctor: "אצל הרופא",
   answered: "נענתה",
   closed: "סגורה",
+};
+
+/**
+ * Status as each role should read it. The clinic never learns whether a specialist is
+ * involved, so both open states read "in progress".
+ */
+export function statusLabel(role: ConsultRole | null, status: ConsultStatus): string {
+  if (role === "clinic") {
+    return status === "answered" ? "נענתה" : status === "closed" ? "סגורה" : "בטיפול";
+  }
+  if (role === "specialist") {
+    return status === "waiting_doctor"
+      ? "ממתינה לתשובתך"
+      : status === "triage"
+        ? "אצל סמנכ״ל התפעול"
+        : status === "answered"
+          ? "נענתה למרפאה"
+          : "סגורה";
+  }
+  return STATUS_LABEL[status];
+}
+
+export function statusClass(role: ConsultRole | null, status: ConsultStatus): string {
+  return role === "clinic" && status === "waiting_doctor" ? STATUS_CLASS.triage : STATUS_CLASS[status];
+}
+
+/** How the consultation team signs messages to the clinic. */
+export const TEAM_LABEL = "צוות ההתייעצות";
+
+export type FileKind = "xray" | "health" | "other";
+export const FILE_KIND_LABEL: Record<FileKind, string> = {
+  xray: "צילום",
+  health: "שאלון בריאות",
+  other: "",
 };
 
 export const STATUS_CLASS: Record<ConsultStatus, string> = {

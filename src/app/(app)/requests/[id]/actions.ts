@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { getViewer } from "@/lib/consult";
+import { notify, type NotifyEvent } from "@/lib/notify";
 import { createClient } from "@/lib/supabase/server";
+
+export type Channel = "clinic" | "internal";
 
 function hebrewError(message: string): string {
   if (message.includes("not_allowed")) return "אין הרשאה לפעולה הזו";
@@ -15,14 +20,26 @@ export async function postMessage(
   requestId: number,
   body: string,
   withFiles: boolean,
+  channel: Channel,
 ): Promise<{ id: number } | { error: string }> {
+  const viewer = await getViewer();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("consult_post_message", {
     p_request_id: requestId,
     p_body: body,
     p_with_files: withFiles,
+    p_channel: channel,
   });
   if (error) return { error: hebrewError(error.message) };
+
+  // Who hears about it. The database decides the real channel (the clinic always writes to
+  // the team, the specialist always internally); mirror that here.
+  const { data: req } = await supabase.from("consult_requests").select("doctor_id").eq("id", requestId).maybeSingle();
+  const isDoctor = !!req?.doctor_id && req.doctor_id === viewer?.userId;
+  const event: NotifyEvent =
+    isDoctor ? "doctor_reply" : viewer?.role === "clinic" ? "clinic_reply" : channel === "clinic" ? "answered" : "ops_to_doctor";
+  if (event !== "ops_to_doctor" || req?.doctor_id) after(() => notify(requestId, event));
+
   revalidatePath(`/requests/${requestId}`);
   return { id: data as number };
 }
@@ -39,6 +56,7 @@ export async function forwardRequest(
     p_note: note || null,
   });
   if (error) return { error: hebrewError(error.message) };
+  after(() => notify(requestId, "forwarded"));
   revalidatePath(`/requests/${requestId}`);
   return null;
 }
