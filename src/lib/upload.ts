@@ -14,19 +14,25 @@ export function fileProblem(f: File): string | null {
  * ASCII; the original name is kept in consult_files), then registers them on the request
  * (messageId null = the opening question). Storage and database rules check access.
  */
-export async function uploadFiles(requestId: number, messageId: number | null, files: File[]) {
+export type UploadKind = "xray" | "health" | "other";
+
+export async function uploadFiles(
+  requestId: number,
+  messageId: number | null,
+  files: { file: File; kind: UploadKind }[],
+) {
   if (files.length === 0) return;
   const supabase = createClient();
-  const registered: { path: string; name: string; mime: string; size: number }[] = [];
+  const registered: { path: string; name: string; mime: string; size: number; kind: UploadKind }[] = [];
 
-  for (const f of files) {
+  for (const { file: f, kind } of files) {
     const ext = f.type === "application/pdf" ? "pdf" : f.type === "image/png" ? "png" : "jpg";
     const path = `${requestId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage
       .from("consult-files")
       .upload(path, f, { contentType: f.type, upsert: false });
     if (error) throw new Error(`העלאת ${f.name} נכשלה: ${error.message}`);
-    registered.push({ path, name: f.name, mime: f.type, size: f.size });
+    registered.push({ path, name: f.name, mime: f.type, size: f.size, kind });
   }
 
   const { error } = await supabase.rpc("consult_add_files", {
